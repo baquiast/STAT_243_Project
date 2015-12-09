@@ -118,10 +118,10 @@ ars = function(f, dom, n, plot.type = "none"){
     }
   }
   
-  if(plot.type == "acceptance"){
+  if(plot.type == "bounds"){
     boundary.plot(x.vec,f.vec,d.vec, x.temp, with.f=F)
   }
-  if(plot.type == "bounds"){
+  if(plot.type == "acceptance"){
     boundary.plot(x.vec,f.vec,d.vec, x.temp, with.f=T, f)
   }
   
