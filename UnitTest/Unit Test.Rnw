@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage{geometry}
+\geometry{tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+
+<<setup, include=FALSE>>=
+library(knitr) # need this for opts_chunk command
+opts_chunk$set(fig.width = 1, fig.height = 1)
+@
+
+\begin{document}
+\title{Project:Test}
+\author{Lu Zhang  SID:26951455}
+\date{December 2015}
+
+\maketitle
+\section{Unit Test}
+\subsection{(a).Log-Concave}
+<<r-chunk1,eval=FALSE>>=
+is.local.concave = function(f.vals,x.vals){
+  if(((f.vals[3]-f.vals[2])/(x.vals[3]-x.vals[2]))>
+     ((f.vals[2]-f.vals[1])/(x.vals[2]-x.vals[1]))){
+    stop("Error: The distribution is not log concave!")
+  }
+  else {
+    return(TRUE)
+  }
+}
+
+test.is.local.concave <- function() {
+  F_N = function(x) {dnorm(x,0,1)}
+  plot(F_N,-4,4)
+  x_N <- c(-4,0,4)
+  f_N <- log(F_N(x_N))
+  checkEquals(is.local.concave(f_N,x_N), "TRUE")
+  
+  F_Exp = function(x) {dexp(x,1)}
+  plot(F_Exp,0,4)
+  x_Exp <- c(0,4,100)
+  f_Exp <- log(F_Exp(x_Exp))
+  checkEquals(is.local.concave(f_Exp,x_Exp), "TRUE")
+  
+  F_ChiSq = function(x) {dchisq(x,2)}
+  plot(F_ChiSq,0,10)
+  x_ChiSq <- c(0,4,10)
+  f_ChiSq <- log(F_ChiSq(x_ChiSq))
+  is.local.concave(f_ChiSq,x_ChiSq)
+  checkEquals(is.local.concave(f_ChiSq,x_ChiSq), "TRUE")
+  
+  F_B = function(x) {dbeta(x,3,3)}
+  plot(F_B,0,1)
+  x_B <- c(0.2,0.4,0.9)
+  f_B <- log(F_B(x_B))
+  is.local.concave(f_B,x_B)
+  checkEquals(is.local.concave(f_B,x_B), "TRUE")
+  
+  F_t = function(x) {dt(x,2)}
+  plot(F_t,-10,10)
+  x_t <- c(0,1,5)
+  f_t <- log(F_t(x_t))
+  checkEquals(is.local.concave(f_B,x_B), "TRUE")
+  x_t <- c(0,1,10)
+  f_t <- log(F_t(x_t))
+  checkException(is.local.concave(f_t,x_t), "Error: The distribution is not log concave!")
+  
+  F_C = function(x) {dcauchy(x,1,0.5)}
+  plot(F_C,0,4)
+  x_C <- c(0,0.2,2)
+  f_C <- log(F_C(x_C))
+  checkEquals(is.local.concave(f_C,x_C), "TRUE")
+  x_C <- c(0,0.2,0.8)
+  f_C <- log(F_C(x_C))
+  checkException(is.local.concave(f_C,x_C), "Error: The distribution is not log concave!")
+}
+@
+
+
+\end{document}
