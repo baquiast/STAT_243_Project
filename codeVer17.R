@@ -1,3 +1,5 @@
+rm(list=ls())
+
 ###################
 ## Going further ##
 ###################
@@ -68,6 +70,68 @@ upper = function(x, x.vec, f.vec, d.vec){
              f.vec[l+1]+(x-x.vec[l+1])*d.vec[l+1]))
 }
 
+# Generate starting points
+gen.start = function(x.start,domain) {
+  # When user input starting values
+  if(length(x.start)!=0) {
+    # Check if there is at least three starting values
+    if(length(x.start)<3){
+      stop("At least three starting values are required")
+    }
+    # Check if starting values are unique
+    if(length(unique(x.start))!=length(x.start)){
+      stop("The starting values are not unique")
+    }
+  }else{ # User does not give starting values
+    if(length(domain)!=2 | length(unique(domain))!=2){ # Invalid domain
+     stop("Invalid domain")
+    } else{ # Valid domain
+      if(domain[1]>domain[2]){
+        domain = c(domain[2],domain[1])
+      }
+      if(domain[1]==-Inf){
+        domain[1] = -1e5
+      }
+      if(domain[2]==Inf){
+        domain[2] = 1e5
+      }
+    
+      # Create starting values from domain
+      p1 = seq(0.1,0,length.out=10)
+      p2 = seq(10,0,length.out=10)
+      p.vec1 = cumsum(exp(p1)/sum(exp(p1)))
+      p.vec2 = cumsum(exp(p2)/sum(exp(p2)))
+      p.vec = unique(sort(c(p.vec1,p.vec2,0.5*p.vec1,0.5*p.vec2)))
+      p.vec = p.vec[p.vec!=0 & p.vec!=1]
+    
+      x.start = domain   
+      for(i in 1:2) {
+        x.temp1 = rep(NULL,length(p.vec))
+        if(f(x.start[i])==Inf){
+          x.temp1 = domain[i] - ((-1)^(i))*min(1e-2,(domain[2]-domain[1]))*p.vec
+          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
+        }
+        else if(f(x.start[i])==-Inf){
+          x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
+          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
+        }
+        else {
+          if(!is.na(grad(f,x.start[i]))) {
+            x.start[i] = x.start[i] 
+          } else {
+            x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
+            x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]            
+          }
+        }
+      }
+      x.mod = optimize(f,interval=x.start,maximum=TRUE)$maximum
+      x.start = sort(c(x.start, x.mod))
+    }
+  }
+  return(x.start)
+}
 # Plot of the acceptance region and bounds
 boundary.plot = function(x.vec,f.vec,d.vec, f=FALSE){
   # Create upper bound
@@ -79,7 +143,7 @@ boundary.plot = function(x.vec,f.vec,d.vec, f=FALSE){
   idx = sapply(1:(nvec-1), function(i) {
     a = (mat[i,2]+(x.vals-mat[i,1])*mat[i,3])>(mat[i+1,2]+(x.vals-mat[i+1,1])*mat[i+1,3])
     idx = ifelse(sum(which(diff(a)!=0))==0,0,which(diff(a)!=0))
-    }
+  }
   )
   
   idx[idx==0] =  idx[which(idx==0)+1]
@@ -146,65 +210,8 @@ ars = function(n, g, ..., dg=NULL, log.transform=FALSE, x.start=NULL, domain=c(-
   }
   
   ## Generate starting values  
-  # When user input starting values
-  if(length(x.start)!=0) {
-    # Check if there is at least three starting values
-    if(length(x.start)<3){
-      stop("At least three starting values are required")
-    }
-    # Check if starting values are unique
-    if(length(unique(x.start))!=length(x.start)){
-      stop("The starting values are not unique")
-    }
-  } else{ # User does not give starting values
-    if(length(domain)!=2 | length(unique(domain))!=2){ # Invalid domain
-      stop("Invalid domain")
-    } else{ # Valid domain
-      if(domain[1]>domain[2]){
-        domain = c(domain[2],domain[1])
-      }
-      if(domain[1]==-Inf){
-        domain[1] = -1e5
-      }
-      if(domain[2]==Inf){
-        domain[2] = 1e5
-      }
-      # Create starting values from domain
-      p1 = seq(0.1,0,length.out=10)
-      p2 = seq(10,0,length.out=10)
-      p.vec1 = cumsum(exp(p1)/sum(exp(p1)))
-      p.vec2 = cumsum(exp(p2)/sum(exp(p2)))
-      p.vec = unique(sort(c(p.vec1,p.vec2,0.5*p.vec1,0.5*p.vec2)))
-      p.vec = p.vec[p.vec!=0 & p.vec!=1]
-      
-      x.start = domain   
-      for(i in 1:2) {
-        x.temp1 = rep(NULL,length(p.vec))
-        if(f(x.start[i])==Inf){
-          x.temp1 = domain[i] - ((-1)^(i))*min(1e-2,(domain[2]-domain[1]))*p.vec
-          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
-          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
-        }
-        else if(f(x.start[i])==-Inf){
-          x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
-          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
-          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
-        }
-        else {
-          if(!is.na(grad(f,x.start[i]))) {
-            x.start[i] = x.start[i] 
-          } else {
-            x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
-            x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]            
-          }
-        }
-      }
-      x.mod = optimize(f,interval=x.start,maximum=TRUE)$maximum
-      x.start = sort(c(x.start, x.mod))
-    }
-  }
+  x.start = gen.start(x.start,domain)
     
-  
   # Initialization
   set.seed(200)
   x.out=rep(NA,n)
