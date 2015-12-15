@@ -1,0 +1,382 @@
+\documentclass{article}
+\usepackage{geometry}
+\geometry{tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+
+<<setup, include=FALSE>>=
+library(knitr) # need this for opts_chunk command
+opts_chunk$set(fig.width = 1, fig.height = 1)
+@
+
+\begin{document}
+\title{Project:Test}
+\author{Lu Zhang  SID:26951455}
+\date{December 2015}
+
+\maketitle
+\section{Unit Test}
+\subsection{(a).Log-Concave}
+The function is.local.concave is to test if the derivative of the candidate points vector x at the goal density is decreasing:
+<<r-chunk1,eval=FALSE>>=
+is.local.concave = function(d.vec){
+  if(!all.equal(d.vec,sort(d.vec,decreasing=TRUE))==TRUE){
+    stop("Error: The distribution is not log concave!")
+  } else {
+    return("TRUE")
+  }
+}
+@
+
+To do the unit test for this function, we pick 4 typical log-concave distributions: Normal, Exponential, Chi-Square and Beta and 2 non-logcave sidtributions: t and Cauchy. For each distrition, set the parameter and points to see if the function gives the right result:
+<<r-chunk2,eval=FALSE>>=
+test.is.local.concave <- function() {
+  h_Normal = function(x) {log(dnorm(x,0,1))}
+  x_Normal <- c(-4,0,4)
+  d_Normal <- grad(h_Normal,x_Normal)
+  checkEquals(is.local.concave(d_Normal),"TRUE")
+  
+  h_Exp = function(x) {log(dexp(x,1))}
+  x_Exp <- c(1,4,100)
+  d_Exp <- grad(h_Exp,x_Exp)
+  checkEquals(is.local.concave(d_Exp),"TRUE")
+  
+  h_ChiSq = function(x) {log(dchisq(x,2))}
+  x_ChiSq <- c(1,4,10)
+  d_ChiSq <- grad(h_ChiSq,x_ChiSq)
+  checkEquals(is.local.concave(d_ChiSq),"TRUE")
+  
+  h_Beta = function(x) {log(dbeta(x,3,3))}
+  x_Beta <- c(0.2,0.4,0.9)
+  d_Beta <- grad(h_Beta,x_Beta)
+  checkEquals(is.local.concave(d_Beta),"TRUE")
+  
+  h_t = function(x) {log(dt(x,2))}
+  x_t <- c(0,1,5)
+  d_t <- grad(h_t,x_t)
+  checkException(is.local.concave(d_t), "Error: The distribution is not log concave!")
+  
+  h_Cauchy = function(x) {log(dcauchy(x,1,0.5))}
+  x_Cauchy <- c(0,0.2,2)
+  d_Cauchy <- grad(h_Cauchy,x_Cauchy)
+  checkException(is.local.concave(d_Cauchy), "Error: The distribution is not log concave!")
+}
+@
+\subsection{(b).Generating Starting Points}
+How to manipulate the starting points and the domain is a difficulty in the project. \\
+Basically, we have options to the user to input either the starting points or the domain. \\
+If the user gives the finite starting points, we only check its length equals to 3 to see if it is valid.\\
+If the user gives the domain instead of the starting points, we first check the domain's validation.\\
+Then, 
+<<r-chunk3,eval=FALSE>>=
+# Generate starting points
+gen.start = function(x.start,domain,f) {
+  # When user input starting values
+  if(length(x.start)!=0) {
+    # Check if there is at least three starting values
+    if(length(x.start)<3){
+      stop("At least three starting values are required")
+    }
+    # Check if starting values are unique
+    if(length(unique(x.start))!=length(x.start)){
+      stop("The starting values are not unique")
+    }
+  }else{ # User does not give starting values
+    if(length(domain)!=2 | length(unique(domain))!=2){ # Invalid domain
+      stop("Invalid domain")
+    } else{ # Valid domain
+      if(domain[1]>domain[2]){
+        domain = c(domain[2],domain[1])
+      }
+      if(domain[1]==-Inf){
+        domain[1] = -1e5
+      }
+      if(domain[2]==Inf){
+        domain[2] = 1e5
+      }
+      
+      # Create starting values from domain
+      p1 = seq(0.1,0,length.out=10)
+      p2 = seq(10,0,length.out=10)
+      p.vec1 = cumsum(exp(p1)/sum(exp(p1)))
+      p.vec2 = cumsum(exp(p2)/sum(exp(p2)))
+      p.vec = unique(sort(c(p.vec1,p.vec2,0.5*p.vec1,0.5*p.vec2)))
+      p.vec = p.vec[p.vec!=0 & p.vec!=1]
+      
+      x.start = domain   
+      for(i in 1:2) {
+        x.temp1 = rep(NULL,length(p.vec))
+        if(f(x.start[i])==Inf){
+          x.temp1 = domain[i] - ((-1)^(i))*min(1e-2,(domain[2]-domain[1]))*p.vec
+          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
+        }
+        else if(f(x.start[i])==-Inf){
+          x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
+          x.temp1 = x.temp1[abs(f(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]
+        }
+        else {
+          if(!is.na(grad(f,x.start[i]))) {
+            x.start[i] = x.start[i] 
+          } else {
+            x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
+            x.start[i] = x.temp1[!is.na(grad(f,x.temp1))][1]            
+          }
+        }
+      }
+      x.mod = optimize(f,interval=x.start,maximum=TRUE)$maximum
+      x.start = sort(c(x.start, x.mod))
+    }
+  }
+  return(x.start)
+}
+@
+
+To do the unit test, we first try catch the Exception Errors which are detecting the invalid inputs of starting points and domain. Then we check if the domain are valid, the function returns a reasonable starting points. We need to change the target density to see if the starting points are reasonable in different cases:
+<<r-chunk4,eval=FALSE>>=
+test.gen.start <- function() {
+  x.start=0
+  domain=c(-4,4)
+  f=function(x) {dnorm(x,0,1)}
+  checkException(gen.start(x.start,domain,f), "At least three starting values are required")
+  x.start=c(4,0,4)
+  checkException(gen.start(x.start,domain,f), "The starting values are not unique")
+  x.start=c()
+  domain=0
+  checkException(gen.start(x.start,domain,f), "Invalid domain")
+  domain=c(4,4)
+  checkException(gen.start(x.start,domain,f), "Invalid domain")
+  domain=c(-4,0,4)
+  checkException(gen.start(x.start,domain,f), "Invalid domain")
+  domain=c(-1,1)
+  checkEquals(gen.start(x.start,domain,f),c(-1,-8.326673e-17,1),tolerance=10^-6)
+  domain=c(-Inf,Inf)
+  checkEquals(gen.start(x.start,domain,f), c(-1e+05,1e+05,1e+05),tolerance=10^-6)
+  f=function(x) {dexp(x,1)}
+  domain=c(0,10)
+  checkEquals(gen.start(x.start,domain,f), c(0,5.575865e-05,10),tolerance=10^-6)
+  domain=c(0,Inf)
+  checkEquals(gen.start(x.start,domain,f), c(0e+00,1e+05,1e+05),tolerance=10^-6)
+  f=function(x) {dchisq(x,2)}
+  domain=c(0,10)
+  checkEquals(gen.start(x.start,domain,f), c(0,5.575865e-05,10),tolerance=10^-6)
+  domain=c(0,Inf)
+  checkEquals(gen.start(x.start,domain,f), c(0e+00,1e+05,1e+05),tolerance=10^-6)
+}
+@
+
+\subsection{(c).Upper Bound and Lower Bound}
+When we have the starting points and sampling points(i.e our candidates vectir x.vec), we can generate the upper bound and lower bound of the target density folloing the tagent algrithom:
+<<r-chunk5,eval=FALSE>>=
+# Evaluate lower bound at x
+lower = function(x, x.vec, f.vec){
+  z = sort(append(x,x.vec))
+  l = match(x,z)-1:length(x)
+  return(((x.vec[l+1]-x)*f.vec[l]+(x-x.vec[l])*f.vec[l+1])/(x.vec[l+1]-x.vec[l]))
+}
+
+# Evaluate upper bound at x
+upper = function(x, x.vec, f.vec, d.vec){
+  z = sort(append(x,x.vec))
+  l = match(x,z)-1:length(x)
+  return(pmin(f.vec[l]+(x-x.vec[l])*d.vec[l],
+              f.vec[l+1]+(x-x.vec[l+1])*d.vec[l+1],na.rm=FALSE))
+}
+@
+
+To do te unit test, we choose Normal(0,1), the starting point as (-4,0,4) and set the points number as 5. If we set seed at 200, the expected x.vec, f.vec, d.vec are below. We can pick any point in the domain to test its bound.
+Here we choose x=1,-1,0,4,-2 and 2 as tests:
+<<r-chunk6,eval=FALSE>>=
+test.lower <- function() {
+  x.vec <- c(-4,-1.091335,0,1.548574,4)
+  f.vec <- c(-8.9189385,-1.5144445,-0.9189385,-2.1179792,-8.9189385)
+  checkEquals(lower(1.548574,x.vec,f.vec),-2.117979,tolerance=10^-6)
+  checkEquals(lower(-1.091335,x.vec,f.vec),-1.514444,tolerance=10^-6)
+  checkEquals(lower(0,x.vec,f.vec),-0.9189385,tolerance=10^-6)
+  checkEquals(lower(4,x.vec,f.vec),-8.9189385,tolerance=10^-6)
+  checkEquals(lower(-2,x.vec,f.vec),-3.827604,tolerance=10^-6)
+  checkEquals(lower(2,x.vec,f.vec),-3.370365,tolerance=10^-6)
+}
+
+test.upper <- function() {
+  x.vec <- c(-4,-1.091335,0,1.548574,4)
+  f.vec <- c(-8.9189385,-1.5144445,-0.9189385,-2.1179792,-8.9189385)
+  d.vec <- c(4,1.091335,0,-1.548574,-4)
+  checkEquals(upper(1.548574,x.vec,f.vec,d.vec),-2.117979,tolerance=10^-6)
+  checkEquals(upper(-1.091335,x.vec,f.vec,d.vec),-1.514444,tolerance=10^-6)
+  checkEquals(upper(0,x.vec,f.vec,d.vec),-0.918939,tolerance=10^-6)
+  checkEquals(upper(4,x.vec,f.vec,d.vec),-8.918939,tolerance=10^-6)
+  checkEquals(upper(-2,x.vec,f.vec,d.vec),-2.506102,tolerance=10^-6)
+  checkEquals(upper(2,x.vec,f.vec,d.vec),-2.817046,tolerance=10^-6)
+}
+@
+
+The boundary plot gengerated by boundary.plot is below:
+<<r-plot,fig.width=5, fig.height=4>>=
+boundary.plot = function(x.vec,f.vec,d.vec, f=FALSE){
+  # Create upper bound
+  nvec = length(x.vec)
+  x.vals = seq(x.vec[1],x.vec[nvec],l=100)
+  
+  x.mat = cbind(x.vec[1:(nvec-1)],x.vec[2:nvec])
+  f.mat = cbind(f.vec[1:(nvec-1)],f.vec[2:nvec])
+  d.mat = cbind(d.vec[1:(nvec-1)],d.vec[2:nvec])
+  x.center = (f.mat[,2]-f.mat[,1]-x.mat[,2]*d.mat[,2]+x.mat[,1]*d.mat[,1])/(d.mat[,1]-d.mat[,2])
+  f.center = f.mat[,1] + d.mat[,1]*(x.center-x.mat[,1]) 
+  xf.corners = cbind(c(x.center,x.vec),c(f.center,f.vec))
+  xf.corners = xf.corners[order(xf.corners[,1]),]
+  x.corners = xf.corners[,1]
+  f.corners = xf.corners[,2]
+  
+  # Plot
+  if(is.function(f)){
+    plot(f, xlim=c(x.vec[1],x.vec[nvec]), lwd =1, yaxt='n', ylab='', xlab="x",
+         main ="Acceptance region and rejection of the log density",
+         cex.lab = 1.4)
+    polygon(x.corners,f.corners,
+            col="firebrick", border="firebrick")
+    polygon(c(x.vals,x.vec[nvec],x.vec[1]),c(f(x.vals),min(f.vec),min(f.vec)),
+            col="palegreen4",border="palegreen4") # acceptance region
+    lines(x.corners,f.corners, lwd=1, col="firebrick")
+    lines(x.vec,f.vec, lwd =1, col="grey10") # lower bound
+    legend(x="topright", legend=c("Acceptance region", "Rejection region",
+                                  "Lower bound"),col=c("palegreen4","firebrick","grey10"),
+           pch=c(15,15,NA),lty=c(0,0,1), seg.len = 0.5, cex = 0.6)
+  } else{
+    plot(x.corners,f.corners, type = "l",lty =1, lwd=1, col="red", xlab="x",
+         yaxt='n', ylab='', main = "Upper and lower bound of the log density",
+         cex.lab = 1.4)
+    lines(x.vec,f.vec, lwd =1,col="black") # lower bound
+    legend(x="topright",legend=c("Upper bound", "Lower bound"),
+           col=c("black","red"), lty=c(1,1), cex = 0.6)
+  }
+}
+
+x.vec <- c(-4,-1.091335,0,1.548574,4)
+f.vec <- c(-8.9189385,-1.5144445,-0.9189385,-2.1179792,-8.9189385)
+d.vec <- c(4,1.091335,0,-1.548574,-4)
+boundary.plot(x.vec,f.vec,d.vec)
+@
+
+
+\subsection{(d).Bounded}
+As the paper saying, we should check if the upper bound and lower bound actually bound the target density when we have chosen the candidate sampling points. The is.bounded works for this goal:
+<<r-chunk7,eval=FALSE>>=
+is.bounded = function(x.cand.re0, x.vec, f.vec, d.vec, f.cand.re0){
+  if(sum(pmin(upper(x.cand.re0, x.vec, f.vec, d.vec),f.cand.re0, na.rm=FALSE)==f.cand.re0)!=length(x.cand.re0)
+     | sum(pmin(f.cand.re0,lower(x.cand.re0, x.vec, f.vec),na.rm=FALSE)==lower(x.cand.re0, x.vec, f.vec))!=length(x.cand.re0)) {
+    stop("Error: The distribution is not bounded!")
+  } else {
+    return("TRUE")
+  }
+}
+@
+
+To do te unit test, we choose Normal(0,1), the starting point as (-4,0,4) and set the points number as 5. If we set seed at 200, the expected x.vec, f.vec, d.vec are below. We can pick any point in the domain to test if it is bounded.
+Here we choose x=2 as a test:
+<<r-chunk8,eval=FALSE>>=
+test.is.bounded <- function() {
+  x.vec <- c(-4,-1.091335,0,1.548574,4)
+  f.vec <- c(8.9189385,-1.5144445,-0.9189385,-2.1179792,-8.9189385)
+  d.vec <- c(4,1.091335,0,-1.548574,-4)
+  x.cand.re0 <- 2
+  f.cand.re0 <- log(dnorm(2))
+  checkEquals(is.bounded(x.cand.re0,x.vec,f.vec,d.vec,f.cand.re0),"TRUE")
+}
+@
+
+\subsection{(e).ars.main}
+The ars.main function is doing the main calculation with initialization step and sampling step.
+<<r-chunk9,eval=FALSE>>=
+ars.main = function(x.start,h,fprima,hprima,n) {
+  
+  ## Initialization step
+  x.out = NULL
+  x.vec = sort(x.start)
+  h.vec = h(x.vec)
+  if(is.function(fprima)){d.vec=hprima(x.vec)} else {d.vec = grad(h,x.vec)}
+  # Evaluate d(x), the derivative of h(x), of starting points    
+  xhd.mat = cbind(x.vec,h.vec,d.vec)
+  
+  x.temp.start = x.vec[1]
+  x.temp.end = x.vec[length(x.vec)]
+  dx = (x.temp.end-x.temp.start)/(100000000*n)
+  x.temp = seq(x.temp.start+dx, x.temp.end-dx,l=20*n)
+  
+  set.seed(200)
+  while(length(x.out) <= n){
+    
+    ## Sampling step
+    u = runif(n-length(x.out),0,1)
+    # Sample values from the uniform(0,1) distribution 
+    
+    x.cand = sample(x.temp,size=n-length(x.out),
+                    prob=exp(upper(x.temp,x.vec,h.vec,d.vec)))
+    x.cand = runif(n-length(x.out),x.cand-dx,x.cand+dx)
+    x.cand = sort(x.cand)
+    # Sample values from the s(x), squeezing function  
+    
+    ## Sampling step: (1) Squeezing test
+    # Evaluate l(x) and u(x)
+    x.cand.sq1 = x.cand[u <= exp(lower(x.cand,x.vec,h.vec)-
+                                   upper(x.cand,x.vec,h.vec,d.vec))]
+    # Accepted x.cand
+    x.cand.sq0 = x.cand[!x.cand %in% x.cand.sq1]
+    x.cand.sq0 = x.cand.sq0[!is.na(x.cand.sq0)] 
+    # Rejected x.cand
+    
+    ## Sampling step: (2) Rejection test
+    u.sq0 = u[which(x.cand %in% x.cand.sq0)]
+    x.cand.re1 = x.cand.sq0[u.sq0 <= exp(h(x.cand.sq0) - 
+                                           upper(x.cand.sq0,x.vec,h.vec,d.vec))] 
+    x.cand.re1 = x.cand.re1[!is.na(x.cand.re1)]
+    # Accepted x.cand.sq0
+    
+    x.out = append(x.out, c(x.cand.sq1, x.cand.re1))
+    # Accepted samples
+    if(length(x.out)==n) {break}
+    # Stop the for loop if the number of samples is n
+    
+    ## Updating step
+    h.cand.sq0 = h(x.cand.sq0)
+    # Evaluate h(x) of samples rejected at the squeezing test
+    
+    if(is.function(fprima)){
+      d.cand.sq0 = hprima(x.cand.sq0)
+    }else{
+      d.cand.sq0 = grad(h, x.cand.sq0)
+    } # Evaluate d(x) of samples rejected at the squeezing test
+    
+    cand.mat = cbind(x.cand.sq0, h.cand.sq0, d.cand.sq0)
+    
+    xhd.mat = cbind(append(xhd.mat[,1],cand.mat[,1]),
+                    append(xhd.mat[,2],cand.mat[,2]),
+                    append(xhd.mat[,3],cand.mat[,3]))
+    xhd.mat = xhd.mat[order(xhd.mat[,1]),]
+    x.vec = xhd.mat[,1]
+    h.vec = xhd.mat[,2]
+    d.vec = xhd.mat[,3]    
+    
+    is.local.concave(d.vec)  # Check for log concavity
+  }
+  return(list(xhd.mat,x.out))
+}
+@
+
+To do te unit test, we choose Normal(0,1), the starting point as (-4,4) and set the points number as 10. If we set seed at 200, the expected x.vec, f.vec, d.vec are below. We can check if this function actually generats 10 sampling points:
+<<r-chunk10,eval=FALSE>>=
+test.ars.main = function() {
+  x.start <- c(-4,4)
+  h = function(x) {log(dnorm(x,0,1))}
+  fprima = NULL
+  hprima = NULL
+  n=10
+  list <- ars.main(x.start,h,fprima,hprima,n)
+  checkEquals(10,length(list[[2]]))
+}
+@
+
+
+
+
+
+\end{document}
