@@ -1,0 +1,105 @@
+documentclass{article}
+\usepackage{geometry}
+\geometry{tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+
+<<setup, include=FALSE>>=
+library(knitr) # need this for opts_chunk command
+opts_chunk$set(fig.width = 1, fig.height = 1)
+@
+
+\begin{document}
+\title{STAT243: Group Project}
+\author{Guillaume Baquiast, Mingyung Kim, Andreas Strand, Lu Zhang}
+\author{baquiast}
+\date{December 17 2015}
+
+\maketitle
+\section{1. Approach}
+\subsection{1-(a). Overall explanation}
+The adaptive rejection sampling function needs the validation of the inputs (e.g., checking for the log-concavity of the given function, checking for the validation of the starting points or domain). After proving the validity of the inputs, the adaptive rejection sampling needs the three steps: Initialization step, sampling step, and updating step. 
+\begin{itemize}
+\item The initialization step: This step evaluates $ln(f(X))$ at two or more points, such that at least one point lies to the mode of the density. The lower bound to the log density is constructed from the chords joining the evaluated points of $ln(f(x))$ with the vertical lines at the extreme points. The upper bound is constructed by extending the chords to their points of intersection.
+\end{itemize}
+\begin{itemize}
+\item The sampling step: This step first exponentiates the piece-wise linear upper bound of $ln(f(x))$. It then samples $x$ from the envelope function $e(x) = ln(u(x))$ and the same number of points $u$ independently from a $U(0,1)$.
+\end{itemize}
+
+\subsection{1-(b). Functions}
+
+
+\maketitle
+\section{2. Main Test}
+\subsection{2-(a). Overall expanation}
+
+\maketitle
+\section{3. Unit Test}
+\subsection{3-(a). Overall explanation}
+
+\subsection{3-(b). Log-Concavity test}
+<<r-chunk1,eval=FALSE>>=
+is.local.concave = function(f.vals,x.vals){
+  if(((f.vals[3]-f.vals[2])/(x.vals[3]-x.vals[2]))>
+     ((f.vals[2]-f.vals[1])/(x.vals[2]-x.vals[1]))){
+    stop("Error: The distribution is not log concave!")
+  }
+  else {
+    return(TRUE)
+  }
+}
+
+test.is.local.concave <- function() {
+  F_N = function(x) {dnorm(x,0,1)}
+  plot(F_N,-4,4)
+  x_N <- c(-4,0,4)
+  f_N <- log(F_N(x_N))
+  checkEquals(is.local.concave(f_N,x_N), "TRUE")
+  
+  F_Exp = function(x) {dexp(x,1)}
+  plot(F_Exp,0,4)
+  x_Exp <- c(0,4,100)
+  f_Exp <- log(F_Exp(x_Exp))
+  checkEquals(is.local.concave(f_Exp,x_Exp), "TRUE")
+  
+  F_ChiSq = function(x) {dchisq(x,2)}
+  plot(F_ChiSq,0,10)
+  x_ChiSq <- c(0,4,10)
+  f_ChiSq <- log(F_ChiSq(x_ChiSq))
+  is.local.concave(f_ChiSq,x_ChiSq)
+  checkEquals(is.local.concave(f_ChiSq,x_ChiSq), "TRUE")
+  
+  F_B = function(x) {dbeta(x,3,3)}
+  plot(F_B,0,1)
+  x_B <- c(0.2,0.4,0.9)
+  f_B <- log(F_B(x_B))
+  is.local.concave(f_B,x_B)
+  checkEquals(is.local.concave(f_B,x_B), "TRUE")
+  
+  F_t = function(x) {dt(x,2)}
+  plot(F_t,-10,10)
+  x_t <- c(0,1,5)
+  f_t <- log(F_t(x_t))
+  checkEquals(is.local.concave(f_B,x_B), "TRUE")
+  x_t <- c(0,1,10)
+  f_t <- log(F_t(x_t))
+  checkException(is.local.concave(f_t,x_t), "Error: The distribution is not log concave!")
+  
+  F_C = function(x) {dcauchy(x,1,0.5)}
+  plot(F_C,0,4)
+  x_C <- c(0,0.2,2)
+  f_C <- log(F_C(x_C))
+  checkEquals(is.local.concave(f_C,x_C), "TRUE")
+  x_C <- c(0,0.2,0.8)
+  f_C <- log(F_C(x_C))
+  checkException(is.local.concave(f_C,x_C), "Error: The distribution is not log concave!")
+}
+@
+
+\maketitle
+\section{4. Efficiency}
+
+
+\maketitle
+\section{5. Appendix}
+
+
+\end{document}
