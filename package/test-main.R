@@ -49,12 +49,18 @@ test_sample <- function(x,y){
 
 test_that("Normal Distribution",{
   set.seed(100)
+  par(mfrow=c(2,2))
   x = rnorm(n=100,mean=0,sd=1)
-  y = ars(n=100,dnorm,mean=0,sd=1,x.start=c(-4,4), plot.type="acceptance")
+  y = ars(n=100,dnorm,mean=0,sd=1,x.start=c(-4,4), plot.type="bounds",
+          pdf.name="Normal Distribution: ")  
+  ars(n=100,dnorm,mean=0,sd=1,x.start=c(-4,4), plot.type="acceptance",
+          pdf.name="Normal Distribution: ")
+  hist(x,main="Histogram of the sample from rnorm")
+  hist(y,main="Histogram of the sample from ars")
   test_passed = test_sample(x,y)
   expect_true(test_passed)
   if(test_passed) {
-    print('Normal distribution: The main test is passed.')
+    print('Normal distribution: Passed main test.')
   }
 })
 
@@ -64,25 +70,32 @@ test_that("Normal Distribution",{
 test_that("Gamma Distribution",{
   set.seed(100)
   x = rgamma(n=100,shape=1,scale=1)
-  y = ars(n=100,dgamma,shape=1,scale=1,domain=c(0,Inf))
+  y = ars(n=100,dgamma,shape=1,scale=1,domain=c(0,Inf),plot.type ="acceptance")
   test_passed = test_sample(x,y)
   expect_true(test_passed)
   if(test_passed) {
     print('Gamma distribution: The main test is passed.')
   }
 })
+# y = ars(n=100,dgamma,shape=5,scale=3,domain=c(0,Inf),plot.type ="bounds")
 
 #############################################################################
 ## 3. Beta distribution(shape1 = 1, shape2 = 1) #############################
 
 test_that("Beta Distribution",{
   set.seed(100)
-  x = rbeta(n=100,shape1=1,shape2=1)
-  y = ars(n=100,dbeta,shape1=1,shape2=1,domain=c(0,1),plot.type ="acceptance")
+  par(mfrow=c(2,2))
+  x = rbeta(n=100,shape1=1.3,shape2=2.7)
+  y = ars(n=100,dbeta,shape1=1.3,shape2=2.7,domain=c(0,1),plot.type="bounds"
+      , pdf.name="Beta Distribution: ")
+  ars(n=100,dbeta,shape1=1.3,shape2=2.7,domain=c(0,1),plot.type="acceptance"
+      , pdf.name="Beta Distribution: ")
+  hist(x,main="Histogram of the sample from rbeta")
+  hist(y,main="Histogram of the sample from ars")
   test_passed = test_sample(x,y)
   expect_true(test_passed)
   if(test_passed) {
-    print('Beta distribution: The main test is passed.')
+    print('Beta distribution: Passed main test.')
   }
 })
 
@@ -155,6 +168,7 @@ test_that("Weibull Distribution",{
     print('Weibull distribution: The main test is passed.')
   }
 })
+# y=ars(n=100, f=dweibull, shape=4, scale=4, domain=c(0,Inf),plot.type="bounds")
 
 #############################################################################
 ## 9. Double Exponential distribution #######################################
