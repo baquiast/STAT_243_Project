@@ -329,16 +329,18 @@ We checked the log-concavity of the given density function. We checked the valid
 
 \maketitle
 \section{Main Tests}
+The detailed explanations and comments of the codes of the tests are included in the test-main.R and test-unit.R.
 \subsection{Normal distribution}
 
 <<r-chunk2,echo=FALSE>>=
 set.seed(100)
 par(mfrow=c(2,2))
-x = rnorm(n=30,mean=0,sd=1)
+x = rnorm(n=1000,mean=0,sd=1)
 y = ars(n=30,dnorm,mean=0,sd=1, plot.type="bounds",pdf.name="Normal Distribution: ")  
 z = ars(n=30,dnorm,mean=0,sd=1, plot.type="acceptance",pdf.name="Normal Distribution: ")
-hist(x,main="Histogram of the sample from\nrnorm(n=30)")
-hist(y,main="Histogram of the sample from\nars(n=30, f=dnorm)")
+a = ars(n=1000,dnorm,mean=0,sd=1, plot.type="none")
+hist(x,main="Histogram of the sample from\nrnorm(n=1000)")
+hist(a,main="Histogram of the sample from\nars(n=1000, f=dnorm)")
 @
 
 \subsection{Beta distribution}
@@ -346,11 +348,12 @@ hist(y,main="Histogram of the sample from\nars(n=30, f=dnorm)")
 <<r-chunk3,echo=FALSE>>=
 set.seed(100)
 par(mfrow=c(2,2))
-x = rbeta(n=30,shape1=2,shape2=3)
+x = rbeta(n=1000,shape1=2,shape2=3)
 y = ars(n=30,dbeta,shape1=2,shape2=3,domain=c(0,1),plot.type="bounds", pdf.name="Beta Distribution: ")
 z = ars(n=30,dbeta,shape1=2,shape2=3,domain=c(0,1),plot.type="acceptance", pdf.name="Beta Distribution: ")
-hist(x,main="Histogram of the sample from\nrbeta(n=30, shape1=2, shape2=3)")
-hist(y,main="Histogram of the sample from\nars(n=30, f=dbeta, shape1=2, shape2=3, domain=c(0,1))")
+a = ars(n=1000,dbeta,shape1=2,shape2=3,domain=c(0,1),plot.type="none")
+hist(x,main="Histogram of the sample from\nrbeta(n=1000, shape1=2, shape2=3)")
+hist(a,main="Histogram of the sample from\nars(n=1000, f=dbeta, shape1=2, shape2=3, domain=c(0,1))")
 @
 \subsection{Gamma distribution}
 \subsection{Complicated distribution}
