@@ -193,7 +193,7 @@ ars.main = function(x.start,h,fprima,hprima,n) {
 }  
 
 # Plot of the acceptance region and bounds
-boundary.plot = function(x.vec,h.vec,d.vec,h=FALSE){
+boundary.plot = function(x.vec,h.vec,d.vec,h=FALSE,pdf.name){
   
   # Create upper bound
   nvec = length(x.vec)
@@ -211,7 +211,7 @@ boundary.plot = function(x.vec,h.vec,d.vec,h=FALSE){
   # Plot
   if(is.function(h)){
     plot(h, xlim=c(x.vec[1],x.vec[nvec]), lwd =1, yaxt='n', ylab='', xlab="x",
-         main ="Acceptance region and rejection of the log density",
+         main =paste(pdf.name,"Acceptance region\nand rejection of the log density"),
          cex.lab = 1.4)
     polygon(x.corners,h.corners,
             col="firebrick", border="firebrick")
@@ -225,7 +225,7 @@ boundary.plot = function(x.vec,h.vec,d.vec,h=FALSE){
            pch=c(15,15,NA),lty=c(0,0,1), seg.len = 0.5, cex = 0.6)
   } else{
     plot(x.corners,h.corners, type = "l",lty =1, lwd=1, col="red", xlab="x",
-         yaxt='n', ylab='', main = "Upper and lower bound of the log density",
+         yaxt='n', ylab='', main=paste(pdf.name,"Upper and lower\nbound of the log density"),
          cex.lab = 1.4)
     lines(x.vec,h.vec, lwd =1,col="black") # lower bound
     legend(x="topright",legend=c("Upper bound", "Lower bound"),
