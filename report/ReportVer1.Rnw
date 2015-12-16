@@ -1,0 +1,382 @@
+\documentclass{article}
+\usepackage{geometry}
+\geometry{tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+
+<<setup, include=FALSE>>=
+library(knitr) # need this for opts_chunk command
+opts_chunk$set(fig.width = 10, fig.height = 10)
+@
+
+\begin{document}
+\title{STAT243: Group Project}
+\author{Guillaume Baquiast, Mingyung Kim, Andreas Strand, Lu Zhang (Github user name: baquiast)}
+\date{December 17 2015}
+
+<<r-chunk1,echo=FALSE>>=
+library(numDeriv)
+
+# Check for log concavity using d(x)
+is.local.concave = function(d.vec){
+  if(!all.equal(d.vec,sort(d.vec,decreasing=TRUE))==TRUE){
+    stop("Error: The distribution is not log concave!")
+  }else{
+    return("TRUE")
+  }
+}
+
+# Check for log concavity using upper bound, h(x), lower bound 
+is.bounded = function(x.cand, x.vec, h.vec, d.vec, h.cand){
+  u.vec = upper(x.cand, x.vec, h.vec, d.vec)
+  l.vec = lower(x.cand, x.vec, h.vec)
+  if((sum(pmin(u.vec, h.cand, na.rm=FALSE) == h.cand) != length(x.cand))
+     | (sum(pmin(h.cand, l.vec, na.rm=FALSE) == l.vec) != length(x.cand))){
+    stop("Error: The log density is not bounded between upper and lower bounds!")
+  }else{
+    return("TRUE")
+  }
+}
+
+# Evaluate lower bound at x
+lower = function(x, x.vec, h.vec){
+  z = sort(c(x, x.vec))
+  l = match(x,z) - (1:length(x))
+  return(((x.vec[l+1]-x) * h.vec[l] + (x-x.vec[l])*h.vec[l+1])/(x.vec[l+1]-x.vec[l]))
+}
+
+# Evaluate upper bound at x
+upper = function(x, x.vec, h.vec, d.vec){
+  z = sort(c(x,x.vec))
+  l = match(x,z) - (1:length(x))
+  return(pmin(h.vec[l] + (x-x.vec[l])*d.vec[l],
+              h.vec[l+1] + (x-x.vec[l+1])*d.vec[l+1] , na.rm=FALSE))
+}
+
+# Generate starting points
+gen.start = function(x.start,domain,h,fprima,hprima) {
+  # When user gives starting values
+  if(length(x.start)!=0) {
+    # Check if there is at least two unique starting values
+    if(length(unique(x.start))<2){
+      stop("At least two unique starting values are required")
+    }
+    # Check if starting values are inside the domain
+    if((sort(domain)[1] > min(x.start)) | (max(x.start) > sort(domain)[2])){
+      stop("The starting values are outside the domain")
+    }
+    # Check if starting values are differentiable
+    if(sum(is.na(grad(h,x.start)))!=0){
+      stop("The starting values are not differentiable")
+    }
+    x.start = sort(x.start)
+  }else{ 
+    # When user does not give starting values
+    if(length(domain)!=2 | length(unique(domain))!=2){ 
+      # Invalid domain
+      stop("Invalid domain")
+    }else{
+      if(domain[1]>domain[2]){
+        domain = c(domain[2],domain[1])
+      }
+      if(domain[1]==-Inf){
+        domain[1] = -15
+      }
+      if(domain[2]==Inf){
+        domain[2] = 15
+      }
+      
+      # Create starting values from domain
+      p1 = seq(0.1,0,l=10)
+      p2 = seq(10,0,l=10)
+      p.vec1 = cumsum(exp(p1)/sum(exp(p1)))
+      p.vec2 = cumsum(exp(p2)/sum(exp(p2)))
+      p.vec = unique(sort(c(p.vec1,p.vec2,0.5*p.vec1,0.5*p.vec2)))
+      p.vec = c(p.vec,1-p.vec)
+      p.vec = p.vec[p.vec!=0 & p.vec!=1]
+      
+      x.start = domain
+      # Did not vectorize it because it has only two loops
+      for(i in 1:2) {
+        x.temp1 = rep(NULL,length(p.vec))
+        if(h(x.start[i])==Inf){
+          x.temp1 = domain[i]-((-1)^(i))*min(1e-2,(domain[2]-domain[1]))*p.vec
+          x.temp1 = x.temp1[abs(h(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(h,x.temp1))][1]
+        }
+        else if(h(x.start[i])==-Inf){
+          x.temp1 = domain[i] - ((-1)^(i))*(domain[2]-domain[1])*p.vec
+          x.temp1 = x.temp1[abs(h(x.temp1))!=Inf]
+          x.start[i] = x.temp1[!is.na(grad(h,x.temp1))][1]
+        }
+        else {
+          if(!is.na(grad(h,x.start[i]))){
+            x.start[i] = x.start[i] 
+          }else{
+            x.temp1 = domain[i]-((-1)^(i))*min(1e-2,(domain[2]-domain[1]))*p.vec
+            x.start[i] = x.temp1[!is.na(grad(h,x.temp1))][1]            
+          }
+        }
+      }
+      
+      x.mod = optimize(h,interval=x.start,maximum=TRUE)$maximum
+      x.diff = abs(x.start - x.mod)
+      if((x.diff[1]/x.diff[2]) > 1e5 | (x.diff[2]/x.diff[1]) > 1e5) {
+        A=optimize(h,interval=x.start,maximum=TRUE)$objective
+        B=optimize(h,interval=x.start,maximum=FALSE)$objective
+        k = function(x){h(x) - (A-(A-B)*0.5)}
+        x.start1 = x.start[which.max(x.diff)]
+        x.start[which.max(x.diff)] = uniroot(k,interval=c(x.mod,x.start1))$root
+      }
+    }
+  }
+  return(x.start)
+}
+
+### The main functions of adaptive rejection sampling
+ars.main = function(x.start,h,fprima,hprima,n) {
+  
+  ## Initialization step
+  x.out = NULL
+  x.vec = sort(x.start)
+  h.vec = h(x.vec)
+  if(is.function(fprima)){d.vec=hprima(x.vec)} else {d.vec = grad(h,x.vec)}
+  # Evaluate d(x), the derivative of h(x), of starting points    
+  xhd.mat = cbind(x.vec,h.vec,d.vec)
+  
+  x.temp.start = x.vec[1]
+  x.temp.end = x.vec[length(x.vec)]
+  dx = (x.temp.end-x.temp.start)/(100000000*n)
+  x.temp = seq(x.temp.start+dx, x.temp.end-dx,l=20*n)
+  
+  while(length(x.out) <= n){
+    
+    ## Sampling step
+    u = runif(n-length(x.out),0,1)
+    # Sample values from the uniform(0,1) distribution 
+    
+    x.cand = sample(x.temp,size=n-length(x.out),
+                    prob=exp(upper(x.temp,x.vec,h.vec,d.vec)))
+    x.cand = runif(n-length(x.out),x.cand-dx,x.cand+dx)
+    x.cand = sort(x.cand)
+    # Sample values from the s(x), squeezing function  
+    
+    ## Sampling step: (1) Squeezing test
+    # Evaluate l(x) and u(x)
+    x.cand.sq1 = x.cand[u <= exp(lower(x.cand,x.vec,h.vec)-
+                                   upper(x.cand,x.vec,h.vec,d.vec))]
+    # Accepted x.cand
+    x.cand.sq0 = x.cand[!x.cand %in% x.cand.sq1]
+    x.cand.sq0 = x.cand.sq0[!is.na(x.cand.sq0)] 
+    # Rejected x.cand
+    
+    ## Sampling step: (2) Rejection test
+    u.sq0 = u[which(x.cand %in% x.cand.sq0)]
+    x.cand.re1 = x.cand.sq0[u.sq0 <= exp(h(x.cand.sq0) - 
+                                           upper(x.cand.sq0,x.vec,h.vec,d.vec))] 
+    x.cand.re1 = x.cand.re1[!is.na(x.cand.re1)]
+    # Accepted x.cand.sq0
+    
+    x.out = append(x.out, c(x.cand.sq1, x.cand.re1))
+    # Accepted samples
+    if(length(x.out)==n) {break}
+    # Stop the for loop if the number of samples is n
+    
+    ## Updating step
+    h.cand.sq0 = h(x.cand.sq0)
+    # Evaluate h(x) of samples rejected at the squeezing test
+    is.bounded(x.cand.sq0, x.vec, h.vec, d.vec, h.cand.sq0)
+    # Check for local log concavity
+    
+    if(is.function(fprima)){
+      d.cand.sq0 = hprima(x.cand.sq0)
+    }else{
+      d.cand.sq0 = grad(h, x.cand.sq0)
+    } # Evaluate d(x) of samples rejected at the squeezing test
+    
+    cand.mat = cbind(x.cand.sq0, h.cand.sq0, d.cand.sq0)
+    
+    xhd.mat = cbind(append(xhd.mat[,1],cand.mat[,1]),
+                    append(xhd.mat[,2],cand.mat[,2]),
+                    append(xhd.mat[,3],cand.mat[,3]))
+    xhd.mat = xhd.mat[order(xhd.mat[,1]),]
+    x.vec = xhd.mat[,1]
+    h.vec = xhd.mat[,2]
+    d.vec = xhd.mat[,3]    
+    
+    is.local.concave(d.vec)  
+    # Double check for local log concavity
+  }
+  return(list(xhd.mat,x.out))
+}  
+
+# Plot of the acceptance region and bounds
+boundary.plot = function(x.vec,h.vec,d.vec,h=FALSE,pdf.name){
+  
+  # Create upper bound
+  nvec = length(x.vec)
+  x.vals = seq(x.vec[1],x.vec[nvec],l=100)
+  
+  x.mat = cbind(x.vec[1:(nvec-1)],x.vec[2:nvec])
+  h.mat = cbind(h.vec[1:(nvec-1)],h.vec[2:nvec])
+  d.mat = cbind(d.vec[1:(nvec-1)],d.vec[2:nvec])
+  x.center = (h.mat[,2]-h.mat[,1]-x.mat[,2]*d.mat[,2]+
+                x.mat[,1]*d.mat[,1])/(d.mat[,1]-d.mat[,2])
+  h.center = h.mat[,1] + d.mat[,1]*(x.center-x.mat[,1]) 
+  x.corners = c(x.vec[1],x.center,x.vec[nvec])
+  h.corners = c(h.vec[1],h.center,h.vec[nvec])
+  
+# Plot
+  if(is.function(h)){
+    plot(h, xlim=c(x.vec[1],x.vec[nvec]), lwd =1, yaxt='n', ylab='', xlab="x",
+         main =paste(pdf.name,"Acceptance and\nrejection regions of the log density"),
+         cex.lab = 1.4)
+    polygon(x.corners,h.corners,
+            col="firebrick", border="firebrick")
+    polygon(c(x.vals,x.vec[nvec],x.vec[1]),c(h(x.vals),min(h.vec),min(h.vec)),
+            col="palegreen4",border="palegreen4") # acceptance region
+    lines(x.corners,h.corners, lwd=1, col="firebrick")
+    lines(x.vec,h.vec, lwd =1, col="grey10") # lower bound
+    legend(x="topright", legend=c("Acceptance region", "Rejection region",
+                                  "Lower bound"),
+           col=c("palegreen4","firebrick","grey10"),
+           pch=c(15,15,NA),lty=c(0,0,1), seg.len = 0.5, cex = 0.6)
+  } else{
+    plot(x.corners,h.corners, type = "l",lty =1, lwd=1, col="red", xlab="x",
+         yaxt='n', ylab='', main=paste(pdf.name,"Upper and lower bounds\nof the log density"),
+         cex.lab = 1.4)
+    lines(x.vec,h.vec, lwd =1,col="black") # lower bound
+    legend(x="topright",legend=c("Upper bound", "Lower bound"),
+           col=c("black","red"), lty=c(1,1), cex = 0.6)
+  }
+}
+
+ars = function(n, f, ..., fprima=NULL, log.transform=FALSE, x.start=NULL, 
+               domain=c(-Inf,Inf), plot.type = "none",
+               pdf.name=""){ 
+  
+  ## 0. Set seed to replicate results
+  set.seed(100)
+  
+  ## 1. Generate h(x), log density, and h'(x), 
+  if(log.transform==TRUE){
+    h = function(x){
+      if(sum(is.na(f(x,...)))!=0){
+        stop("The input density has negative values or too small values")
+      }
+      return(f(x,...))
+    }  
+  } else{
+    h = function(x){
+      if(sum(is.na(log(f(x,...))))!=0){
+        stop("The input density has negative values")
+      }
+      return(log(f(x,...)))
+    }
+  }
+  
+  if(log.transform==TRUE){
+    hprima = function(x){
+      fprima(x)
+    }
+  } else {
+    hprima = function(x){
+      fprima(x)/f(x,...)
+    }
+  }
+  
+  ## Generate starting points  
+  x.start = gen.start(x.start,domain,h,fprima,hprima)
+  
+  ## Check local concavity for starting points  
+  if(is.function(fprima)){d.start=hprima(x.start)} else {d.start = grad(h,x.start)}
+  is.local.concave(d.start)
+  
+  ## ARS main function  
+  xhd.list = ars.main(x.start,h,fprima,hprima,n)
+  
+  x.vec = xhd.list[[1]][,1]
+  h.vec = xhd.list[[1]][,2]
+  d.vec = xhd.list[[1]][,3]
+  x.out = xhd.list[[2]]
+  
+  # Optional plot part
+  if(plot.type == "bounds"){
+    boundary.plot(x.vec,h.vec,d.vec,h=FALSE,pdf.name)
+  }
+  if(plot.type == "acceptance"){
+    boundary.plot(x.vec,h.vec,d.vec,h,pdf.name)
+  }
+  
+  return(x.out)
+}
+@
+
+\maketitle
+\section{Approach of functions}
+\subsection{Validity checks for the inputs}
+We checked the log-concavity of the given density function. We checked the validity of the starting points (e.g., at least two unique starting points, starting points within the domain). We checked whether the log density is differentiable the given starting points or starting points obtained from the given domain. 
+
+\subsection{Starting points generation}
+
+\subsection{Adaptive rejection sampling}
+\begin{itemize}
+\item The initialization step: This step evaluates $ln(f(X))$ at two or more points, such that at least one point lies to the mode of the density. The lower bound to the log density is constructed from the chords joining the evaluated points of $ln(f(x))$ with the vertical lines at the extreme points. The upper bound is constructed by extending the chords to their points of intersection.
+\end{itemize}
+\begin{itemize}
+\item The sampling step: This step first exponentiates the piece-wise linear upper bound of $ln(f(x))$. It then samples $x$ from the envelope function $e(x) = ln(u(x))$ and the same number of points $u$ independently from a $U(0,1)$.
+\end{itemize}
+
+\subsection{Plotting}
+
+\maketitle
+\section{Main Tests}
+\subsection{Normal distribution}
+
+<<r-chunk2,echo=FALSE>>=
+set.seed(100)
+par(mfrow=c(2,2))
+x = rnorm(n=30,mean=0,sd=1)
+y = ars(n=30,dnorm,mean=0,sd=1, plot.type="bounds",pdf.name="Normal Distribution: ")  
+z = ars(n=30,dnorm,mean=0,sd=1, plot.type="acceptance",pdf.name="Normal Distribution: ")
+hist(x,main="Histogram of the sample from\nrnorm(n=30)")
+hist(y,main="Histogram of the sample from\nars(n=30, f=dnorm)")
+@
+
+\subsection{Beta distribution}
+
+<<r-chunk3,echo=FALSE>>=
+set.seed(100)
+par(mfrow=c(2,2))
+x = rbeta(n=30,shape1=2,shape2=3)
+y = ars(n=30,dbeta,shape1=2,shape2=3,domain=c(0,1),plot.type="bounds", pdf.name="Beta Distribution: ")
+z = ars(n=30,dbeta,shape1=2,shape2=3,domain=c(0,1),plot.type="acceptance", pdf.name="Beta Distribution: ")
+hist(x,main="Histogram of the sample from\nrbeta(n=30, shape1=2, shape2=3)")
+hist(y,main="Histogram of the sample from\nars(n=30, f=dbeta, shape1=2, shape2=3, domain=c(0,1))")
+@
+\subsection{Gamma distribution}
+\subsection{Complicated distribution}
+
+\maketitle
+\section{Unit Tests}
+\subsection{Log concavity check}
+
+\maketitle
+\section{Findings}
+\subsection{Case}
+\subsection{Efficiency}
+
+\maketitle
+\section{Contributions}
+\begin{itemize}
+\item Guillaume Baquiast
+\end{itemize}
+\begin{itemize}
+\item Mingyung Kim
+\end{itemize}
+\begin{itemize}
+\item Andreas Strand
+\end{itemize}
+\begin{itemize}
+\item Luna Zhang
+\end{itemize}
+
+\end{document}
