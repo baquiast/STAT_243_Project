@@ -20,7 +20,8 @@
 #' mysample = ars(n=100,f,fprima,log.transform=TRUE,x.start=c(-4,4))
 
 ars = function(n, f, ..., fprima=NULL, log.transform=FALSE, x.start=NULL, 
-               domain=c(-Inf,Inf), plot.type = "none"){ 
+               domain=c(-Inf,Inf), plot.type = "none",
+               pdf.name=""){ 
   
   set.seed(100)
   ## Log transformations 
@@ -68,10 +69,10 @@ ars = function(n, f, ..., fprima=NULL, log.transform=FALSE, x.start=NULL,
   
   # Optional plot part
   if(plot.type == "bounds"){
-    boundary.plot(x.vec,h.vec,d.vec)
+    boundary.plot(x.vec,h.vec,d.vec,h=FALSE,pdf.name)
   }
   if(plot.type == "acceptance"){
-    boundary.plot(x.vec,h.vec,d.vec,h)
+    boundary.plot(x.vec,h.vec,d.vec,h,pdf.name)
   }
   
   return(x.out)
