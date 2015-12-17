@@ -1,0 +1,28 @@
+\documentclass{article}
+\usepackage{geometry}
+\geometry{tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+
+<<setup, include=FALSE>>=
+library(knitr) # need this for opts_chunk command
+opts_chunk$set(fig.width = 1, fig.height = 1)
+@
+
+\begin{document}
+\title{Project:Test}
+\author{Lu Zhang  SID:26951455}
+\date{December 2015}
+
+\maketitle
+\section{Unit Test}
+Unit Test is important in finding the bugs. The key is to set typical or corner cases. Our project have 4 sub functions. For each sub function, we set serval typical density to test if it works.\\
+(1).gen.start: the function transferring the domain which is input by user to the starting points we need further. Test: Normal(0,1) with x.start=0, c(4,0,4) and x.start=NULL with domain=0, c(4,4), c(-4,0,4), c(-1,1) and c(-Inf,Inf); Exponential(2) with x.start=NULL and domain=c(0,10) and c(0,Inf); Chi-Square(1) with x.start=NULL and domain=c(0,10) and c(0,Inf).\\ 
+(2).is.local.concave: the function checking whether the density is log concave. Test: Postive cases: Normal(0,1), Exponential(1), Chi-Square(2) and Beta(3,3); Negative cases: t(2) and Cauchy(1,0.5).
+(3).upper and lower: the function returning the upper bound and lower bound of any points in the domain. Test: Normal(0,1).\\
+(4).ars.main: the function doing the main calculation for initialization step and sampling step. Test: Normal(0,1) with x.start=c(-4,4) and n=10.\\
+
+
+
+
+
+
+\end{document}

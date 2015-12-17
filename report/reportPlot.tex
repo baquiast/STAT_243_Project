@@ -1,0 +1,24 @@
+\documentclass{article}
+\usepackage[left=3cm,right=3cm,top=2cm,bottom=2cm]{geometry} 
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\begin{document}
+\section*{Evolution of the ARS}
+Bounds of the standard normal distribution as made by the ARS are shown in figure \ref{arsplot}. Occasionally as the 
+sample size $n$ increases, a new value of the density is computed. Each new point provides a tighter bound of the distribution.
+With tighter bounds it is less likely that approving the next sample element requires calculating a distribution value. 
+
+Another thing to note is that the bounds will lie closer to the distribution for values with high density since more values are
+chosen from dense parts.  
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{normalArs}
+\caption{Development of ARS bounds by increasing sample size $n$. A value for the distribution is computed every time a 
+candidate for the sample is rejected from the squeezing step. As more density values are known the bounds will move
+closer to the distribution.}
+\label{arsplot}
+\end{figure}
+\end{document}
